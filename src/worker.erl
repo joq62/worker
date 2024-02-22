@@ -41,6 +41,8 @@
 
 
 -export([
+	 get_supervisor_pid/0,
+	 get_pid/0,
 	 start/0,
 	 ping/0,
 	 stop/0
@@ -70,6 +72,25 @@
 %	 stop_unload/1
 %	 loaded/0,
 %	 running/0
+
+%%--------------------------------------------------------------------
+%% @doc
+%%  Resturn the gen_server pid, used for monitoring 
+%% @end
+%%--------------------------------------------------------------------
+-spec get_pid() -> 
+	  {ok,Pid :: pid()} | {error, Reason :: term()}.
+get_pid() ->
+    gen_server:call(?SERVER,{get_pid},infinity).
+%--------------------------------------------------------------------
+%% @doc
+%%  Resturn the superviso pid, used for monitoring 
+%% @end
+%%--------------------------------------------------------------------
+-spec get_supervisor_pid() -> 
+	  {ok,Pid :: pid()} | {error, Reason :: term()}.
+get_supervisor_pid() ->
+    gen_server:call(?SERVER,{get_supervisor_pid},infinity).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -218,6 +239,16 @@ handle_call({load_start,ApplicationId}, _From, State)->
 
 
 
+handle_call({get_pid}, _From, State) ->
+    Reply={ok,self()},
+    {reply, Reply, State};
+
+handle_call({get_supervisor_pid}, _From, State) ->
+    SupervisorPid=worker_sup:get_pid(),
+    Reply={ok,SupervisorPid},
+    {reply, Reply, State};
+
+
 handle_call({ping}, _From, State) ->
     Reply=pong,
     {reply, Reply, State};
@@ -257,6 +288,12 @@ handle_info(timeout, State)->
   
     ok=initial_trade_resources(),
     
+    {noreply, State};
+
+handle_info({'DOWN',MonitorRef,process,Pid,Info}, State)->
+    [Crashed]=[Map||Map<-State#state.load_start_info,
+		    MonitorRef=:=maps:get(monitor_ref,Map)],
+    io:format("Crashed ~p~n",[{Crashed,?MODULE,?LINE}]),
     {noreply, State};
 
 

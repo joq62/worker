@@ -32,6 +32,7 @@ start()->
     
     ok=setup(),
     ok=load_start(),
+    ok=monitor_test(),
 
     io:format("Test OK !!! ~p~n",[?MODULE]),
 %    timer:sleep(1000),
@@ -39,6 +40,32 @@ start()->
     ok.
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% @end
+%%--------------------------------------------------------------------
+monitor_test()->
+    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
+ 
+    Pid=erlang:whereis(?TestApp),
+    Pid!{glurk},
+    Ref=erlang:monitor(process,Pid),
+    io:format("Pid, Ref ~p~n",[{Pid,Ref,?MODULE,?FUNCTION_NAME}]),
+    
+    ?TestApp:stop(),
+    receive
+	X->
+	    %{'DOWN',#Ref<0.2478890797.869269520.10588>,process,<0.125.0>,normal}
+	    io:format("X ~p~n",[{X,?MODULE,?FUNCTION_NAME}])
+    end,
+    
+
+
+
+    %{'DOWN', MonitorRef, Type, Object, Info}
+   
+    ok.
 %%--------------------------------------------------------------------
 %% @doc
 %% 

@@ -38,11 +38,14 @@ load_start(ApplicationId,LoadStartInfoList)->
 		   [code:add_patha(Path)||Path<-Paths],
 		   ok=application:load(App),
 		   ok=application:start(App),
-		   
 		   LoadStartId=erlang:system_time(nanosecond),
+		   ApplicationPid=erlang:whereis(App),
+		   MonitorRef=erlang:monitor(process,ApplicationPid),
 		   LoadStartInfo=#{application_id=>ApplicationId,
 				   app=>App,
+				   application_pid=>ApplicationPid,
 				   load_start_id=>LoadStartId,
+				   monitor_ref=>MonitorRef,
 				   time=>{date(),time()}
 				  },
 		   {ok,LoadStartInfo}
