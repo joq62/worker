@@ -172,7 +172,7 @@ stop()-> gen_server:stop(?SERVER).
 init([]) ->
     ?LOG_NOTICE("Server started ",[?MODULE]),
     {ok, #state{
-	 
+	    load_start_info=[]	        
 	   },0}.
 
 %%--------------------------------------------------------------------
@@ -193,7 +193,7 @@ init([]) ->
 
     
 handle_call({load_start,ApplicationId}, _From, State)->
-    Result= try lib_worker:new_cluster(ApplicationId,State#state.load_start_info) of
+    Result= try lib_worker:load_start(ApplicationId,State#state.load_start_info) of
 		{ok,CreateResult}->
 		    {ok,CreateResult};
 		{error,Reason}->
@@ -204,12 +204,12 @@ handle_call({load_start,ApplicationId}, _From, State)->
 	    end,
     Reply=case Result of
 	      {ok,LoadStartInfo}->
-		  NewState=State,
-		  {ok,LoadStartInfo};
+		  NewState=State#state{load_start_info=[LoadStartInfo|State#state.load_start_info]},
+		  {ok,LoadStartInfo,NewState};
 	      ErrorEvent->
 		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
 		  NewState=State,
-		  {error,ErrorEvent}
+		  ErrorEvent
 	  end,
     {reply, Reply, NewState};
 

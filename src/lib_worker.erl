@@ -33,8 +33,8 @@ load_start(ApplicationId,LoadStartInfoList)->
 	       true->
 		   {error,["Already deployed ",ApplicationId]};
 	       false->
-		   {ok,Paths}=rd:call(catalog,get_info,[paths,ApplicationId],5000),
-		   {ok,App}=rd:call(catalog,get_info,[app,ApplicationId],5000),
+		   {ok,Paths}=rd:call(catalog,get_application_paths,[ApplicationId],5000),
+		   {ok,App}=rd:call(catalog,get_application_app,[ApplicationId],5000),
 		   [code:add_patha(Path)||Path<-Paths],
 		   ok=application:load(App),
 		   ok=application:start(App),
@@ -43,7 +43,7 @@ load_start(ApplicationId,LoadStartInfoList)->
 		   LoadStartInfo=#{application_id=>ApplicationId,
 				   app=>App,
 				   load_start_id=>LoadStartId,
-				   time=>{date(),time}
+				   time=>{date(),time()}
 				  },
 		   {ok,LoadStartInfo}
 	   end,
