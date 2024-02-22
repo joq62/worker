@@ -1,0 +1,10 @@
+{application,worker,
+             [{description,"An OTP application"},
+              {vsn,"0.1.0"},
+              {registered,[]},
+              {mod,{worker_app,[]}},
+              {applications,[kernel,stdlib]},
+              {env,[]},
+              {modules,[lib_worker,worker,worker_app,worker_sup]},
+              {licenses,["Apache-2.0"]},
+              {links,[]}]}.
