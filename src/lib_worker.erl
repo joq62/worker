@@ -11,7 +11,8 @@
 %% API
 -export([
 	 load_start/2,
-	 stop_unload/2
+	 stop_unload/2,
+	 restart/2
 	]).
 
 %%%===================================================================
@@ -29,8 +30,33 @@
 %% 
 %% @end
 %%--------------------------------------------------------------------
+restart(MonitorRef,LoadStartInfoList)->
+%io:format("unmatched_signal ~p~n",[{Info,?MODULE,?LINE}]),
+    Result=case key_find_map(monitor_ref,MonitorRef,LoadStartInfoList) of
+	       false->
+		   {error,["MonitorRef doesnt exist  ",MonitorRef]};
+	       {ok,Map}->
+		   App=maps:get(app,Map),
+		   application:stop(App),
+		   application:unload(App),
+
+		   ok=application:load(App),
+		   ok=application:start(App),
+		   ApplicationPid=erlang:whereis(App),
+		   MonitorRef2=erlang:monitor(process,ApplicationPid),
+		   UD1=maps:put(monitor_ref,MonitorRef2,Map),
+		   UpdatedLoadStartInfo=maps:put(time,{date(),time()},UD1),
+		   {ok,{Map,UpdatedLoadStartInfo}}
+	   end,
+    Result.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% @end
+%%--------------------------------------------------------------------
 load_start(ApplicationId,LoadStartInfoList)->
-      Result=case is_member(application_id,ApplicationId,LoadStartInfoList) of
+    Result=case is_member(application_id,ApplicationId,LoadStartInfoList) of
 	       true->
 		   {error,["Already deployed ",ApplicationId]};
 	       false->
@@ -59,7 +85,7 @@ load_start(ApplicationId,LoadStartInfoList)->
 %% @end
 %%--------------------------------------------------------------------
 stop_unload(LoadStartId,LoadStartInfoList)->
-    Result=case key_find(load_start_id,LoadStartId,LoadStartInfoList) of
+    Result=case key_find_map(load_start_id,LoadStartId,LoadStartInfoList) of
 	       false->
 		   {error,["Doesnt exist  ",LoadStartId]};
 	       {ok,Map}->
@@ -83,7 +109,7 @@ stop_unload(LoadStartId,LoadStartInfoList)->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-key_find(Key,Value,MapList)->
+key_find_map(Key,Value,MapList)->
     R=[Map||Map<-MapList,
 		 Value==maps:get(Key,Map)],
     Result=case R of

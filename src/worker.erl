@@ -329,31 +329,29 @@ handle_info(timeout, State)->
 
 
 handle_info({'DOWN',MonitorRef,process,Pid,shutdown}, State)->
-  %  io:format("'DOWN',MonitorRef,process,Pid ~p~n",[{'DOWN',MonitorRef,process,Pid,shutdown,?MODULE,?LINE}]),
+    io:format("'DOWN',MonitorRef,process,Pid ~p~n",[{'DOWN',MonitorRef,process,Pid,shutdown,?MODULE,?LINE}]),
     
     {noreply, State};
 
 handle_info({'DOWN',MonitorRef,process,Pid,Info}, State)->
     io:format("'DOWN',MonitorRef,process,Pid,Info ~p~n",[{'DOWN',MonitorRef,process,Pid,Info,?MODULE,?LINE}]),
-
-    [Crashed]=[Map||Map<-State#state.load_start_info,
-		    MonitorRef=:=maps:get(monitor_ref,Map)],
-    ApplicationId=maps:get(application_id,Crashed),
-    App=maps:get(app,Crashed),
-    rpc:call(node(),application,stop,[App],5000),
-    rpc:call(node(),application,unload,[App],5000),
-    case rpc:call(node(),application,start,[App],5000) of
-	ok->
-	    ApplicationPid=erlang:whereis(App),
-	    MonitorRef2=erlang:monitor(process,ApplicationPid),
-	    UD1=maps:put(monitor_ref,MonitorRef2,Crashed),
-	    UpdatedCrashed=maps:put(time,{date(),time()},UD1),	    
-	    NewState= NewState=State#state{load_start_info=[UpdatedCrashed|lists:delete(Crashed,State#state.load_start_info)]};
-	_->
-	    NewState=State#state{load_start_info=lists:delete(Crashed,State#state.load_start_info)}
-    end,	    
-    {noreply, NewState};
-
+    Result= try lib_worker:restart(MonitorRef,State#state.load_start_info) of
+		{ok,CreateResult}->
+		    {ok,CreateResult};
+		{error,Reason}->
+		    {error,Reason}
+	    catch
+		Event:Reason:Stacktrace ->
+		    {Event,Reason,Stacktrace,?MODULE,?LINE}
+	    end,
+    NewState=case Result of
+		 {ok,{LoadStartInfo,UpdatedLoadStartInfo}}->
+		     State#state{load_start_info=[UpdatedLoadStartInfo|lists:delete(LoadStartInfo,State#state.load_start_info)]}; 
+		 ErrorEvent->
+		     io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
+		     State
+	     end,
+    {noreply,NewState};
 
 handle_info(Info, State) ->
     io:format("unmatched_signal ~p~n",[{Info,?MODULE,?LINE}]),
