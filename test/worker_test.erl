@@ -33,6 +33,7 @@ start()->
     ok=setup(),
     ok=load_start(),
     ok=monitor_test(),
+    
 
     io:format("Test OK !!! ~p~n",[?MODULE]),
 %    timer:sleep(1000),
@@ -75,13 +76,27 @@ load_start()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
     
     {badrpc,_}=rpc:call(node(),?TestApp,ping,[],5000),
-    {ok,_,_}=worker:load_start(?TestApplicationId),
+    {ok,LoadStartInfo1,State1}=worker:load_start(?TestApplicationId),
     [rd:add_target_resource_type(TargetType)||TargetType<-[?TestApp]],
     rd:trade_resources(),
     timer:sleep(1000),
     pong=rd:call(?TestApp,ping,[],5000),
     42=rd:call(?TestApp,add,[20,22],5000),
     {error,["Already deployed ",?TestApplicationId]}=worker:load_start(?TestApplicationId),
+    
+    %%
+    
+    LoadStartId=maps:get(load_start_id,LoadStartInfo1),
+    WrongLoadStartId=LoadStartId-10,
+    {error,["Doesnt exist  ",WrongLoadStartId]}=worker:stop_unload(WrongLoadStartId),
+    {ok,LoadStartInfo1,State2}=worker:stop_unload(LoadStartId),
+    
+    {badrpc,_}=rd:call(?TestApp,ping,[],5000),
+    {badrpc,_}=rd:call(?TestApp,add,[20,22],5000),
+    io:format("State1 ~p~n",[{State1,?MODULE,?FUNCTION_NAME}]),
+    io:format("State2 ~p~n",[{State2,?MODULE,?FUNCTION_NAME}]),
+    
+
     ok.
 %% --------------------------------------------------------------------
 %% Function: available_hosts()

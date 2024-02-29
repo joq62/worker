@@ -233,6 +233,27 @@ handle_call({load_start,ApplicationId}, _From, State)->
 		  ErrorEvent
 	  end,
     {reply, Reply, NewState};
+    
+handle_call({stop_unload,LoadStartId}, _From, State)->
+    Result= try lib_worker:stop_unload(LoadStartId,State#state.load_start_info) of
+		{ok,CreateResult}->
+		    {ok,CreateResult};
+		{error,Reason}->
+		    {error,Reason}
+	    catch
+		Event:Reason:Stacktrace ->
+		    {Event,Reason,Stacktrace,?MODULE,?LINE}
+	    end,
+    Reply=case Result of
+	      {ok,LoadStartInfo}->
+		  NewState=State#state{load_start_info=lists:delete(LoadStartInfo,State#state.load_start_info)},
+		  {ok,LoadStartInfo,NewState};
+	      ErrorEvent->
+		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
+		  NewState=State,
+		  ErrorEvent
+	  end,
+    {reply, Reply, NewState};
 
 
 %%--------------------------------------------------------------------

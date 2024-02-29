@@ -10,7 +10,8 @@
  
 %% API
 -export([
-	 load_start/2
+	 load_start/2,
+	 stop_unload/2
 	]).
 
 %%%===================================================================
@@ -52,11 +53,45 @@ load_start(ApplicationId,LoadStartInfoList)->
 	   end,
     Result.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% @end
+%%--------------------------------------------------------------------
+stop_unload(LoadStartId,LoadStartInfoList)->
+    Result=case key_find(load_start_id,LoadStartId,LoadStartInfoList) of
+	       false->
+		   {error,["Doesnt exist  ",LoadStartId]};
+	       {ok,Map}->
+		   ApplicationId=maps:get(application_id,Map),
+		   App=maps:get(app,Map),
+		   {ok,Paths}=rd:call(catalog,get_application_paths,[ApplicationId],5000),
+		   ok=application:stop(App),
+		   ok=application:unload(App),
+		   [code:del_path(Path)||Path<-Paths],
+		   {ok,Map}
+	   end,
+    Result.
+
 
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% @end
+%%--------------------------------------------------------------------
+key_find(Key,Value,MapList)->
+    R=[Map||Map<-MapList,
+		 Value==maps:get(Key,Map)],
+    case R of
+	[]->
+	    false;
+	[Map|_]->
+	    {ok,Map}
+    end.
 %%--------------------------------------------------------------------
 %% @doc
 %% 
