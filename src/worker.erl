@@ -25,6 +25,7 @@
 -export([
 	 load_start/1,
 	 stop_unload/1,
+	 restart_application/1,
 %	 is_loaded/1,
 %	 is_running/1,
 	 loaded/0,
@@ -42,6 +43,7 @@
 
 -export([
 	 get_supervisor_pid/0,
+	 get_state/0,
 	 get_pid/0,
 	 start/0,
 	 ping/0,
@@ -153,6 +155,15 @@ start()->
 %% 
 %% @end
 %%--------------------------------------------------------------------
+-spec get_state() -> State::term().
+get_state()-> 
+    gen_server:call(?SERVER, {get_state},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% @end
+%%--------------------------------------------------------------------
 -spec ping() -> pong | Error::term().
 ping()-> 
     gen_server:call(?SERVER, {ping},infinity).
@@ -233,6 +244,7 @@ handle_call({load_start,ApplicationId}, _From, State)->
 		  ErrorEvent
 	  end,
     {reply, Reply, NewState};
+
     
 handle_call({stop_unload,LoadStartId}, _From, State)->
     Result= try lib_worker:stop_unload(LoadStartId,State#state.load_start_info) of
@@ -259,6 +271,10 @@ handle_call({stop_unload,LoadStartId}, _From, State)->
 %%--------------------------------------------------------------------
 
 
+
+handle_call({get_state}, _From, State) ->
+    Reply=State,
+    {reply, Reply, State};
 
 handle_call({get_pid}, _From, State) ->
     Reply={ok,self()},
@@ -311,11 +327,32 @@ handle_info(timeout, State)->
     
     {noreply, State};
 
+
+handle_info({'DOWN',MonitorRef,process,Pid,shutdown}, State)->
+  %  io:format("'DOWN',MonitorRef,process,Pid ~p~n",[{'DOWN',MonitorRef,process,Pid,shutdown,?MODULE,?LINE}]),
+    
+    {noreply, State};
+
 handle_info({'DOWN',MonitorRef,process,Pid,Info}, State)->
+    io:format("'DOWN',MonitorRef,process,Pid,Info ~p~n",[{'DOWN',MonitorRef,process,Pid,Info,?MODULE,?LINE}]),
+
     [Crashed]=[Map||Map<-State#state.load_start_info,
 		    MonitorRef=:=maps:get(monitor_ref,Map)],
-    io:format("Crashed ~p~n",[{Crashed,?MODULE,?LINE}]),
-    {noreply, State};
+    ApplicationId=maps:get(application_id,Crashed),
+    App=maps:get(app,Crashed),
+    rpc:call(node(),application,stop,[App],5000),
+    rpc:call(node(),application,unload,[App],5000),
+    case rpc:call(node(),application,start,[App],5000) of
+	ok->
+	    ApplicationPid=erlang:whereis(App),
+	    MonitorRef2=erlang:monitor(process,ApplicationPid),
+	    UD1=maps:put(monitor_ref,MonitorRef2,Crashed),
+	    UpdatedCrashed=maps:put(time,{date(),time()},UD1),	    
+	    NewState= NewState=State#state{load_start_info=[UpdatedCrashed|lists:delete(Crashed,State#state.load_start_info)]};
+	_->
+	    NewState=State#state{load_start_info=lists:delete(Crashed,State#state.load_start_info)}
+    end,	    
+    {noreply, NewState};
 
 
 handle_info(Info, State) ->
@@ -365,6 +402,15 @@ format_status(_Opt, Status) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% @end
+%%--------------------------------------------------------------------
+restart_application(ApplicationId)->
+    timer:sleep(2000),
+    rpc:cast(node(),?MODULE,load_start,[ApplicationId]),
+    ok.
 %%--------------------------------------------------------------------
 %% @doc
 %%

@@ -30,7 +30,7 @@
 %% @end
 %%--------------------------------------------------------------------
 load_start(ApplicationId,LoadStartInfoList)->
-    Result=case is_member(application_id,ApplicationId,LoadStartInfoList) of
+      Result=case is_member(application_id,ApplicationId,LoadStartInfoList) of
 	       true->
 		   {error,["Already deployed ",ApplicationId]};
 	       false->
@@ -86,12 +86,13 @@ stop_unload(LoadStartId,LoadStartInfoList)->
 key_find(Key,Value,MapList)->
     R=[Map||Map<-MapList,
 		 Value==maps:get(Key,Map)],
-    case R of
-	[]->
-	    false;
-	[Map|_]->
-	    {ok,Map}
-    end.
+    Result=case R of
+	       []->
+		   false;
+	       [Map|_]->
+		   {ok,Map}
+	   end,
+    Result.
 %%--------------------------------------------------------------------
 %% @doc
 %% 
@@ -100,9 +101,10 @@ key_find(Key,Value,MapList)->
 is_member(Key,Value,MapList)->
     R=[{true,Map}||Map<-MapList,
 		 Value==maps:get(Key,Map)],
-    case R of
-	[]->
-	    false;
-	_ ->
-	    true
-    end.
+    Result=case R of
+	       []->
+		   false;
+	       _ ->
+		   true
+	   end,
+    Result.

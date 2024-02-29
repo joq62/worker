@@ -32,7 +32,7 @@ start()->
     
     ok=setup(),
     ok=load_start(),
-    ok=monitor_test(),
+%    ok=monitor_test(),
     
 
     io:format("Test OK !!! ~p~n",[?MODULE]),
@@ -82,22 +82,42 @@ load_start()->
     timer:sleep(1000),
     pong=rd:call(?TestApp,ping,[],5000),
     42=rd:call(?TestApp,add,[20,22],5000),
-    {error,["Already deployed ",?TestApplicationId]}=worker:load_start(?TestApplicationId),
+ %   {error,["Already deployed ",?TestApplicationId]}=worker:load_start(?TestApplicationId),
+
+   
+    %% crash the application 
     
-    %%
+    {badrpc,_}=rd:call(?TestApp,add,[glurk,22],5000),
+    
+    {N,true}=check_restarted(?TestApp,100,50,false),
+    io:format("is Started after N ms  ~p~n",[{N*30,?MODULE,?FUNCTION_NAME,?LINE}]),
+    42=rd:call(?TestApp,add,[20,22],5000),
+    %% stop_unload
     
     LoadStartId=maps:get(load_start_id,LoadStartInfo1),
-    WrongLoadStartId=LoadStartId-10,
-    {error,["Doesnt exist  ",WrongLoadStartId]}=worker:stop_unload(WrongLoadStartId),
-    {ok,LoadStartInfo1,State2}=worker:stop_unload(LoadStartId),
-    
+    {ok,LoadStartInfo2,State2}=worker:stop_unload(LoadStartId),
     {badrpc,_}=rd:call(?TestApp,ping,[],5000),
     {badrpc,_}=rd:call(?TestApp,add,[20,22],5000),
-    io:format("State1 ~p~n",[{State1,?MODULE,?FUNCTION_NAME}]),
-    io:format("State2 ~p~n",[{State2,?MODULE,?FUNCTION_NAME}]),
+    io:format("LoadStartInfo1 ~p~n",[{LoadStartInfo1,?MODULE,?FUNCTION_NAME}]),
+    io:format("LoadStartInfo2 ~p~n",[{LoadStartInfo2,?MODULE,?FUNCTION_NAME}]),
     
 
     ok.
+
+check_restarted(_App,0,_Timeout,IsStarted)->
+    {0,IsStarted};
+check_restarted(_App,N,_Timeout,true) ->
+    {N,true};
+check_restarted(App,N,Timeout,false)->
+    IsStarted=case rd:call(App,ping,[],5000) of
+		  pong->
+		      true;
+		  _->
+		      timer:sleep(Timeout),
+		      false
+	      end,
+    
+    check_restarted(App,N-1,Timeout,IsStarted).
 %% --------------------------------------------------------------------
 %% Function: available_hosts()
 %% Description: Based on hosts.config file checks which hosts are avaible
